@@ -1,0 +1,113 @@
+{
+    "name": "pl_utl_databricks_get_job_id",
+    "properties": {
+        "activities": [
+            {
+                "name": "web_get_databricks_jobs",
+                "type": "WebActivity",
+                "dependsOn": [],
+                "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": true
+                },
+                "userProperties": [],
+                "typeProperties": {
+                    "method": "GET",
+                    "headers": {
+                        "Authorization": {
+                            "value": "Bearer @{pipeline().parameters.p_access_token}",
+                            "type": "Expression"
+                        }
+                    },
+                    "url": {
+                        "value": "@{pipeline().globalParameters.gp_databricks_workspace_url}/api/2.1/jobs/list",
+                        "type": "Expression"
+                    },
+                    "connectVia": {
+                        "referenceName": "azir-mvn-nest-dp-uks-01",
+                        "type": "IntegrationRuntimeReference"
+                    }
+                }
+            },
+            {
+                "name": "find_job_id",
+                "type": "Filter",
+                "dependsOn": [
+                    {
+                        "activity": "web_get_databricks_jobs",
+                        "dependencyConditions": [
+                            "Succeeded"
+                        ]
+                    }
+                ],
+                "userProperties": [],
+                "typeProperties": {
+                    "items": {
+                        "value": "@activity('web_get_databricks_jobs').output.jobs",
+                        "type": "Expression"
+                    },
+                    "condition": {
+                        "value": "@equals(item().settings.name, pipeline().parameters.p_job_name)",
+                        "type": "Expression"
+                    }
+                }
+            },
+            {
+                "name": "sv_pipeline_return",
+                "type": "SetVariable",
+                "dependsOn": [
+                    {
+                        "activity": "find_job_id",
+                        "dependencyConditions": [
+                            "Succeeded"
+                        ]
+                    }
+                ],
+                "policy": {
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "userProperties": [],
+                "typeProperties": {
+                    "variableName": "pipelineReturnValue",
+                    "value": [
+                        {
+                            "key": "job_id",
+                            "value": {
+                                "type": "Expression",
+                                "content": "@first(activity('find_job_id').output.Value).job_id"
+                            }
+                        }
+                    ],
+                    "setSystemVariable": true
+                }
+            }
+        ],
+        "parameters": {
+            "p_job_name": {
+                "type": "string",
+                "defaultValue": "[dev toby_riley] xledger_pipeline_dev"
+            },
+            "p_access_token": {
+                "type": "securestring"
+            }
+        },
+        "variables": {
+            "v_access_token": {
+                "type": "String"
+            },
+            "job_id": {
+                "type": "Integer"
+            }
+        },
+        "folder": {
+            "name": "PL_99_Utils"
+        },
+        "annotations": [],
+        "lastPublishTime": "2025-12-04T15:30:38Z"
+    },
+    "type": "Microsoft.DataFactory/factories/pipelines"
+}

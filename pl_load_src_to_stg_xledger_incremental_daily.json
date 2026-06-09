@@ -1,0 +1,106 @@
+{
+    "name": "pl_load_src_to_stg_xledger_incremental_daily",
+    "properties": {
+        "description": "Load source tables to the data lake, performs an incremental load of the Databricks tables.",
+        "activities": [
+            {
+                "name": "ep_stg_prod_batch",
+                "type": "ExecutePipeline",
+                "dependsOn": [],
+                "policy": {
+                    "secureInput": false
+                },
+                "userProperties": [],
+                "typeProperties": {
+                    "pipeline": {
+                        "referenceName": "pl_stg_GraphQL_to_ADSL_parent",
+                        "type": "PipelineReference"
+                    },
+                    "waitOnCompletion": true,
+                    "parameters": {
+                        "pBatchName": "prod"
+                    }
+                }
+            },
+            {
+                "name": "ep_stg_delta_batch",
+                "type": "ExecutePipeline",
+                "dependsOn": [],
+                "policy": {
+                    "secureInput": false
+                },
+                "userProperties": [],
+                "typeProperties": {
+                    "pipeline": {
+                        "referenceName": "pl_stg_GraphQL_to_ADSL_parent",
+                        "type": "PipelineReference"
+                    },
+                    "waitOnCompletion": true,
+                    "parameters": {
+                        "pBatchName": "delta"
+                    }
+                }
+            },
+            {
+                "name": "ep_databricks_inc_refresh",
+                "type": "ExecutePipeline",
+                "dependsOn": [
+                    {
+                        "activity": "ep_stg_prod_batch",
+                        "dependencyConditions": [
+                            "Succeeded"
+                        ]
+                    },
+                    {
+                        "activity": "ep_stg_delta_batch",
+                        "dependencyConditions": [
+                            "Succeeded"
+                        ]
+                    },
+                    {
+                        "activity": "ep_stg_full_batch",
+                        "dependencyConditions": [
+                            "Succeeded"
+                        ]
+                    }
+                ],
+                "policy": {
+                    "secureInput": false
+                },
+                "userProperties": [],
+                "typeProperties": {
+                    "pipeline": {
+                        "referenceName": "pl_1_start_databricks_incremental_refresh_job",
+                        "type": "PipelineReference"
+                    },
+                    "waitOnCompletion": true
+                }
+            },
+            {
+                "name": "ep_stg_full_batch",
+                "type": "ExecutePipeline",
+                "dependsOn": [],
+                "policy": {
+                    "secureInput": false
+                },
+                "userProperties": [],
+                "typeProperties": {
+                    "pipeline": {
+                        "referenceName": "pl_stg_GraphQL_to_ADSL_parent",
+                        "type": "PipelineReference"
+                    },
+                    "waitOnCompletion": true,
+                    "parameters": {
+                        "pBatchName": "full"
+                    }
+                }
+            }
+        ],
+        "folder": {
+            "name": "PL_00_Control/Scheduled"
+        },
+        "annotations": [],
+        "lastPublishTime": "2025-12-04T15:30:41Z"
+    },
+    "type": "Microsoft.DataFactory/factories/pipelines"
+}

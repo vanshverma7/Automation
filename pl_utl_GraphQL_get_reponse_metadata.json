@@ -1,0 +1,583 @@
+{
+    "name": "pl_utl_GraphQL_get_reponse_metadata",
+    "properties": {
+        "description": "Parse a JSON API response to get record count, next page info & offset and any errors.",
+        "activities": [
+            {
+                "name": "sv_v_collection_path_properties",
+                "type": "SetVariable",
+                "dependsOn": [
+                    {
+                        "activity": "sv_v_collection_reference",
+                        "dependencyConditions": [
+                            "Succeeded"
+                        ]
+                    }
+                ],
+                "policy": {
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "userProperties": [],
+                "typeProperties": {
+                    "variableName": "v_collection_path_properties",
+                    "value": {
+                        "value": "@split(variables('v_collection_reference'), '.')",
+                        "type": "Expression"
+                    }
+                }
+            },
+            {
+                "name": "fe_data_property",
+                "type": "ForEach",
+                "dependsOn": [
+                    {
+                        "activity": "sv_v_collection_path_properties",
+                        "dependencyConditions": [
+                            "Succeeded"
+                        ]
+                    },
+                    {
+                        "activity": "v_collection_path_property_data_initial",
+                        "dependencyConditions": [
+                            "Succeeded"
+                        ]
+                    }
+                ],
+                "userProperties": [],
+                "typeProperties": {
+                    "items": {
+                        "value": "@variables('v_collection_path_properties')",
+                        "type": "Expression"
+                    },
+                    "isSequential": true,
+                    "activities": [
+                        {
+                            "name": "v_collection_path_property_data_fe",
+                            "type": "SetVariable",
+                            "dependsOn": [
+                                {
+                                    "activity": "sv_v_collection_path_property_exists_fe",
+                                    "dependencyConditions": [
+                                        "Succeeded"
+                                    ]
+                                }
+                            ],
+                            "policy": {
+                                "secureOutput": false,
+                                "secureInput": false
+                            },
+                            "userProperties": [],
+                            "typeProperties": {
+                                "variableName": "v_collection_path_property_data",
+                                "value": {
+                                    "value": "@variables('v_collection_path_property_exists')",
+                                    "type": "Expression"
+                                }
+                            }
+                        },
+                        {
+                            "name": "sv_v_collection_path_property_exists_fe",
+                            "type": "SetVariable",
+                            "dependsOn": [],
+                            "policy": {
+                                "secureOutput": false,
+                                "secureInput": false
+                            },
+                            "userProperties": [],
+                            "typeProperties": {
+                                "variableName": "v_collection_path_property_exists",
+                                "value": {
+                                    "value": "@string(json(variables('v_collection_path_property_data'))[item()])",
+                                    "type": "Expression"
+                                }
+                            }
+                        }
+                    ]
+                }
+            },
+            {
+                "name": "v_collection_path_property_data_initial",
+                "type": "SetVariable",
+                "dependsOn": [
+                    {
+                        "activity": "sv_v_collection_reference",
+                        "dependencyConditions": [
+                            "Succeeded"
+                        ]
+                    }
+                ],
+                "policy": {
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "userProperties": [],
+                "typeProperties": {
+                    "variableName": "v_collection_path_property_data",
+                    "value": {
+                        "value": "@string(pipeline().parameters.p_data)",
+                        "type": "Expression"
+                    }
+                }
+            },
+            {
+                "name": "sv_v_collection_reference",
+                "type": "SetVariable",
+                "dependsOn": [
+                    {
+                        "activity": "sv_v_paging_reference",
+                        "dependencyConditions": [
+                            "Succeeded"
+                        ]
+                    }
+                ],
+                "policy": {
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "userProperties": [],
+                "typeProperties": {
+                    "variableName": "v_collection_reference",
+                    "value": {
+                        "value": "@replace(replace(replace(replace(replace(pipeline().parameters.p_collection_reference,'][','.'),'$',''),'''',''),'[',''),']','')",
+                        "type": "Expression"
+                    }
+                }
+            },
+            {
+                "name": "sv_v_collection_path_property_data_count",
+                "type": "SetVariable",
+                "dependsOn": [
+                    {
+                        "activity": "fe_data_property",
+                        "dependencyConditions": [
+                            "Succeeded"
+                        ]
+                    }
+                ],
+                "policy": {
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "userProperties": [],
+                "typeProperties": {
+                    "variableName": "v_collection_path_property_data_count",
+                    "value": {
+                        "value": "@if(empty(json(variables('v_collection_path_property_data'))),0,length(json(variables('v_collection_path_property_data'))))\n",
+                        "type": "Expression"
+                    }
+                }
+            },
+            {
+                "name": "sv_v_errors",
+                "type": "SetVariable",
+                "dependsOn": [
+                    {
+                        "activity": "fe_data_property",
+                        "dependencyConditions": [
+                            "Failed"
+                        ]
+                    }
+                ],
+                "policy": {
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "userProperties": [],
+                "typeProperties": {
+                    "variableName": "v_errors",
+                    "value": {
+                        "value": "@json(variables('v_collection_path_property_data')).errors",
+                        "type": "Expression"
+                    }
+                }
+            },
+            {
+                "name": "sv_v_pipeline_return_success",
+                "type": "SetVariable",
+                "dependsOn": [
+                    {
+                        "activity": "sv_v_max_offset",
+                        "dependencyConditions": [
+                            "Succeeded"
+                        ]
+                    },
+                    {
+                        "activity": "sv_v_has_next_page",
+                        "dependencyConditions": [
+                            "Succeeded"
+                        ]
+                    }
+                ],
+                "policy": {
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "userProperties": [],
+                "typeProperties": {
+                    "variableName": "pipelineReturnValue",
+                    "value": [
+                        {
+                            "key": "record_count",
+                            "value": {
+                                "type": "Expression",
+                                "content": "@variables('v_collection_path_property_data_count')"
+                            }
+                        },
+                        {
+                            "key": "max_offset_value",
+                            "value": {
+                                "type": "Expression",
+                                "content": "@variables('v_max_offset')"
+                            }
+                        },
+                        {
+                            "key": "has_next_page",
+                            "value": {
+                                "type": "Expression",
+                                "content": "@variables('v_has_next_page')"
+                            }
+                        },
+                        {
+                            "key": "errors",
+                            "value": {
+                                "type": "Null"
+                            }
+                        }
+                    ],
+                    "setSystemVariable": true
+                }
+            },
+            {
+                "name": "sv_v_max_offset",
+                "type": "SetVariable",
+                "dependsOn": [
+                    {
+                        "activity": "sv_v_collection_path_property_data_count",
+                        "dependencyConditions": [
+                            "Succeeded"
+                        ]
+                    }
+                ],
+                "policy": {
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "userProperties": [],
+                "typeProperties": {
+                    "variableName": "v_max_offset",
+                    "value": {
+                        "value": "@if(empty(json(variables('v_collection_path_property_data'))),'0',json(variables('v_collection_path_property_data'))[add(variables('v_collection_path_property_data_count'), -1) ][pipeline().parameters.p_offset_attribute])",
+                        "type": "Expression"
+                    }
+                }
+            },
+            {
+                "name": "sv_v_pipeline_return_failure",
+                "type": "SetVariable",
+                "dependsOn": [
+                    {
+                        "activity": "sv_v_errors",
+                        "dependencyConditions": [
+                            "Succeeded"
+                        ]
+                    }
+                ],
+                "policy": {
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "userProperties": [],
+                "typeProperties": {
+                    "variableName": "pipelineReturnValue",
+                    "value": [
+                        {
+                            "key": "record_count",
+                            "value": {
+                                "type": "Int",
+                                "content": 0
+                            }
+                        },
+                        {
+                            "key": "max_offset_value",
+                            "value": {
+                                "type": "String",
+                                "content": "0"
+                            }
+                        },
+                        {
+                            "key": "has_next_page",
+                            "value": {
+                                "type": "Boolean",
+                                "content": false
+                            }
+                        },
+                        {
+                            "key": "errors",
+                            "value": {
+                                "type": "Expression",
+                                "content": "@variables('v_errors')"
+                            }
+                        }
+                    ],
+                    "setSystemVariable": true
+                }
+            },
+            {
+                "name": "sv_v_paging_reference",
+                "type": "SetVariable",
+                "dependsOn": [],
+                "policy": {
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "userProperties": [],
+                "typeProperties": {
+                    "variableName": "v_paging_reference",
+                    "value": {
+                        "value": "@replace(replace(replace(replace(replace(pipeline().parameters.p_page_reference,'][','.'),'$',''),'''',''),'[',''),']','')",
+                        "type": "Expression"
+                    }
+                }
+            },
+            {
+                "name": "sv_v_has_next_page",
+                "type": "SetVariable",
+                "dependsOn": [
+                    {
+                        "activity": "fe_paging_property",
+                        "dependencyConditions": [
+                            "Succeeded"
+                        ]
+                    }
+                ],
+                "policy": {
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "userProperties": [],
+                "typeProperties": {
+                    "variableName": "v_has_next_page",
+                    "value": {
+                        "value": "@json(variables('v_paging_path_property_data'))[pipeline().parameters.p_has_next_page_attribute]",
+                        "type": "Expression"
+                    }
+                }
+            },
+            {
+                "name": "sv_v_paging_path_properties",
+                "type": "SetVariable",
+                "dependsOn": [
+                    {
+                        "activity": "sv_v_collection_reference",
+                        "dependencyConditions": [
+                            "Succeeded"
+                        ]
+                    }
+                ],
+                "policy": {
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "userProperties": [],
+                "typeProperties": {
+                    "variableName": "v_paging_path_properties",
+                    "value": {
+                        "value": "@split(variables('v_paging_reference'), '.')",
+                        "type": "Expression"
+                    }
+                }
+            },
+            {
+                "name": "fe_paging_property",
+                "type": "ForEach",
+                "dependsOn": [
+                    {
+                        "activity": "sv_v_paging_path_properties",
+                        "dependencyConditions": [
+                            "Succeeded"
+                        ]
+                    },
+                    {
+                        "activity": "v_paging_path_property_data_initial",
+                        "dependencyConditions": [
+                            "Succeeded"
+                        ]
+                    }
+                ],
+                "userProperties": [],
+                "typeProperties": {
+                    "items": {
+                        "value": "@variables('v_paging_path_properties')",
+                        "type": "Expression"
+                    },
+                    "isSequential": true,
+                    "activities": [
+                        {
+                            "name": "v_paging_path_property_data_fe",
+                            "type": "SetVariable",
+                            "dependsOn": [
+                                {
+                                    "activity": "sv_v_paging_path_property_exists_fe",
+                                    "dependencyConditions": [
+                                        "Succeeded"
+                                    ]
+                                }
+                            ],
+                            "policy": {
+                                "secureOutput": false,
+                                "secureInput": false
+                            },
+                            "userProperties": [],
+                            "typeProperties": {
+                                "variableName": "v_paging_path_property_data",
+                                "value": {
+                                    "value": "@variables('v_paging_path_property_exists')",
+                                    "type": "Expression"
+                                }
+                            }
+                        },
+                        {
+                            "name": "sv_v_paging_path_property_exists_fe",
+                            "type": "SetVariable",
+                            "dependsOn": [],
+                            "policy": {
+                                "secureOutput": false,
+                                "secureInput": false
+                            },
+                            "userProperties": [],
+                            "typeProperties": {
+                                "variableName": "v_paging_path_property_exists",
+                                "value": {
+                                    "value": "@string(json(variables('v_paging_path_property_data'))[item()])",
+                                    "type": "Expression"
+                                }
+                            }
+                        }
+                    ]
+                }
+            },
+            {
+                "name": "v_paging_path_property_data_initial",
+                "type": "SetVariable",
+                "dependsOn": [
+                    {
+                        "activity": "sv_v_collection_reference",
+                        "dependencyConditions": [
+                            "Succeeded"
+                        ]
+                    }
+                ],
+                "policy": {
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "userProperties": [],
+                "typeProperties": {
+                    "variableName": "v_paging_path_property_data",
+                    "value": {
+                        "value": "@string(pipeline().parameters.p_data)",
+                        "type": "Expression"
+                    }
+                }
+            }
+        ],
+        "parameters": {
+            "p_data": {
+                "type": "object",
+                "defaultValue": {
+                    "data": {
+                        "viewer": {
+                            "entity": {
+                                "periods": {
+                                    "edges": null,
+                                    "pageInfo": {
+                                        "hasNextPage": false
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "ADFWebActivityResponseHeaders": {
+                        "Content-Security-Policy": "script-src 'self' 'unsafe-inline' 'unsafe-eval' dpd2pej3gwwvh.cloudfront.net https://maps.googleapis.com blob: https://auth.bankid.no https://cdn.plaid.com/link/v2/stable/link-initialize.js",
+                        "X-Frame-Options": "SAMEORIGIN",
+                        "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
+                        "X-XSS-Protection": "1;mode=block",
+                        "Referrer-Policy": "same-origin",
+                        "X-Content-Type-Options": "nosniff",
+                        "Cache-Control": "private",
+                        "Date": "Sat, 02 Nov 2024 12:12:21 GMT",
+                        "Content-Length": "56339",
+                        "Content-Type": "application/json; charset=utf-8"
+                    },
+                    "effectiveIntegrationRuntime": "azir-mvn-nest-dp-uks-01 (UK South)",
+                    "executionDuration": 0,
+                    "durationInQueue": {
+                        "integrationRuntimeQueue": 0
+                    }
+                }
+            },
+            "p_page_reference": {
+                "type": "string",
+                "defaultValue": "$['data']['viewer']['entity']['periods']['pageInfo']"
+            },
+            "p_collection_reference": {
+                "type": "string",
+                "defaultValue": "$['data']['viewer']['entity']['periods']['edges']"
+            },
+            "p_offset_attribute": {
+                "type": "string",
+                "defaultValue": "cursor"
+            },
+            "p_has_next_page_attribute": {
+                "type": "string",
+                "defaultValue": "hasNextPage"
+            }
+        },
+        "variables": {
+            "v_paging_reference": {
+                "type": "String"
+            },
+            "v_paging_path_properties": {
+                "type": "Array"
+            },
+            "v_paging_path_property_exists": {
+                "type": "String"
+            },
+            "v_paging_path_property_data": {
+                "type": "String"
+            },
+            "v_collection_reference": {
+                "type": "String"
+            },
+            "v_collection_path_properties": {
+                "type": "Array"
+            },
+            "v_collection_path_property_exists": {
+                "type": "String"
+            },
+            "v_collection_path_property_data": {
+                "type": "String"
+            },
+            "v_collection_path_property_data_count": {
+                "type": "Integer",
+                "defaultValue": 0
+            },
+            "v_max_offset": {
+                "type": "String"
+            },
+            "v_has_next_page": {
+                "type": "Boolean"
+            },
+            "v_errors": {
+                "type": "Array"
+            }
+        },
+        "folder": {
+            "name": "PL_01_Staging/GraphQL"
+        },
+        "annotations": [],
+        "lastPublishTime": "2025-12-04T15:30:36Z"
+    },
+    "type": "Microsoft.DataFactory/factories/pipelines"
+}

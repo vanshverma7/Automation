@@ -1,0 +1,116 @@
+{
+    "name": "pl_utl_databricks_start_job",
+    "properties": {
+        "activities": [
+            {
+                "name": "w_start_dbw_job",
+                "type": "WebActivity",
+                "dependsOn": [
+                    {
+                        "activity": "pl_utl_databricks_get_job_id",
+                        "dependencyConditions": [
+                            "Succeeded"
+                        ]
+                    }
+                ],
+                "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "userProperties": [],
+                "typeProperties": {
+                    "method": "POST",
+                    "headers": {
+                        "Authorization": {
+                            "value": "Bearer @{activity('pl_get_databricks_workspace_access_token').output.pipelineReturnValue.access_token}",
+                            "type": "Expression"
+                        }
+                    },
+                    "url": {
+                        "value": "@{pipeline().globalParameters.gp_databricks_workspace_url}/api/2.1/jobs/run-now",
+                        "type": "Expression"
+                    },
+                    "connectVia": {
+                        "referenceName": "azir-mvn-nest-dp-uks-01",
+                        "type": "IntegrationRuntimeReference"
+                    },
+                    "body": {
+                        "value": "{\n  \"job_id\": @{activity('pl_utl_databricks_get_job_id').output.pipelineReturnValue.job_id}\n}",
+                        "type": "Expression"
+                    }
+                }
+            },
+            {
+                "name": "pl_get_databricks_workspace_access_token",
+                "type": "ExecutePipeline",
+                "dependsOn": [],
+                "policy": {
+                    "secureInput": false
+                },
+                "userProperties": [],
+                "typeProperties": {
+                    "pipeline": {
+                        "referenceName": "pl_utl_get_databricks_workspace_access_token",
+                        "type": "PipelineReference"
+                    },
+                    "waitOnCompletion": true
+                }
+            },
+            {
+                "name": "pl_utl_databricks_get_job_id",
+                "type": "ExecutePipeline",
+                "dependsOn": [
+                    {
+                        "activity": "pl_get_databricks_workspace_access_token",
+                        "dependencyConditions": [
+                            "Succeeded"
+                        ]
+                    }
+                ],
+                "policy": {
+                    "secureInput": false
+                },
+                "userProperties": [],
+                "typeProperties": {
+                    "pipeline": {
+                        "referenceName": "pl_utl_databricks_get_job_id",
+                        "type": "PipelineReference"
+                    },
+                    "waitOnCompletion": true,
+                    "parameters": {
+                        "p_job_name": {
+                            "value": "@pipeline().parameters.p_job_name",
+                            "type": "Expression"
+                        },
+                        "p_access_token": {
+                            "value": "@activity('pl_get_databricks_workspace_access_token').output.pipelineReturnValue.access_token",
+                            "type": "Expression"
+                        }
+                    }
+                }
+            }
+        ],
+        "parameters": {
+            "p_job_name": {
+                "type": "string"
+            }
+        },
+        "variables": {
+            "v_access_token": {
+                "type": "String"
+            },
+            "job_id": {
+                "type": "Integer"
+            }
+        },
+        "folder": {
+            "name": "PL_99_Utils"
+        },
+        "annotations": [],
+        "lastPublishTime": "2025-12-04T15:30:39Z"
+    },
+    "type": "Microsoft.DataFactory/factories/pipelines"
+}

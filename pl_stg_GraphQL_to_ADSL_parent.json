@@ -1,0 +1,531 @@
+{
+    "name": "pl_stg_GraphQL_to_ADSL_parent",
+    "properties": {
+        "activities": [
+            {
+                "name": "LU_SelectStaging",
+                "type": "Lookup",
+                "dependsOn": [
+                    {
+                        "activity": "LU_UpdateLogPipelineBatchStart",
+                        "dependencyConditions": [
+                            "Succeeded"
+                        ]
+                    }
+                ],
+                "policy": {
+                    "timeout": "7.00:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "userProperties": [],
+                "typeProperties": {
+                    "source": {
+                        "type": "AzureSqlSource",
+                        "sqlReaderStoredProcedureName": "[ETL].[uspSelect_Staging_GraphQL]",
+                        "storedProcedureParameters": {
+                            "Enabled": {
+                                "type": "String",
+                                "value": "Y"
+                            },
+                            "Sourcesystem": {
+                                "type": "String",
+                                "value": "xledger"
+                            },
+                            "SourceTableName": {
+                                "type": "String",
+                                "value": null
+                            },
+                            "TargetTableName": {
+                                "type": "String",
+                                "value": {
+                                    "value": "@pipeline().parameters.pTargetTableName",
+                                    "type": "Expression"
+                                }
+                            },
+                            "BatchName": {
+                                "type": "String",
+                                "value": {
+                                    "value": "@pipeline().parameters.pBatchName",
+                                    "type": "Expression"
+                                }
+                            }
+                        },
+                        "queryTimeout": "02:00:00",
+                        "partitionOption": "None"
+                    },
+                    "dataset": {
+                        "referenceName": "DS_ASQL_ADMIN",
+                        "type": "DatasetReference",
+                        "parameters": {
+                            "SchemaName": "x",
+                            "TableName": "x"
+                        }
+                    },
+                    "firstRowOnly": false
+                }
+            },
+            {
+                "name": "FE_LoadStaging",
+                "type": "ForEach",
+                "dependsOn": [
+                    {
+                        "activity": "LU_SelectStaging",
+                        "dependencyConditions": [
+                            "Succeeded"
+                        ]
+                    }
+                ],
+                "userProperties": [],
+                "typeProperties": {
+                    "items": {
+                        "value": "@activity('LU_SelectStaging').output.value",
+                        "type": "Expression"
+                    },
+                    "isSequential": false,
+                    "batchCount": 8,
+                    "activities": [
+                        {
+                            "name": "if_initial_load",
+                            "description": "Perform full initial load if flag is set to Y",
+                            "type": "IfCondition",
+                            "dependsOn": [],
+                            "userProperties": [],
+                            "typeProperties": {
+                                "expression": {
+                                    "value": "@equals(item().InitialLoad,'Y')",
+                                    "type": "Expression"
+                                },
+                                "ifFalseActivities": [
+                                    {
+                                        "name": "pl_graphql_paged_request_incremental",
+                                        "type": "ExecutePipeline",
+                                        "dependsOn": [],
+                                        "policy": {
+                                            "secureInput": false
+                                        },
+                                        "userProperties": [
+                                            {
+                                                "name": "Target Directory",
+                                                "value": "@item().TargetDirectory"
+                                            }
+                                        ],
+                                        "typeProperties": {
+                                            "pipeline": {
+                                                "referenceName": "pl_stg_GraphQL_paged_request",
+                                                "type": "PipelineReference"
+                                            },
+                                            "waitOnCompletion": true,
+                                            "parameters": {
+                                                "pSourceURL": {
+                                                    "value": "@item().SourceURL",
+                                                    "type": "Expression"
+                                                },
+                                                "pGraphQLQuery": {
+                                                    "value": "@item().GraphQLQueryIncremental\n\n",
+                                                    "type": "Expression"
+                                                },
+                                                "pTargetDirectory": {
+                                                    "value": "@item().TargetDirectory",
+                                                    "type": "Expression"
+                                                },
+                                                "pTabularTranslatorObject": {
+                                                    "value": "@item().TabularTranslatorObject",
+                                                    "type": "Expression"
+                                                },
+                                                "pGraphQLMetadataQuery": {
+                                                    "value": "@item().GraphQLMetadataQueryIncremental",
+                                                    "type": "Expression"
+                                                },
+                                                "pSourceKeyVaultSecret1": {
+                                                    "value": "@item().SourceKeyVaultSecret1",
+                                                    "type": "Expression"
+                                                },
+                                                "pTargetTableName": {
+                                                    "value": "@item().TargetTableName",
+                                                    "type": "Expression"
+                                                },
+                                                "pSourceTableName": {
+                                                    "value": "@item().SourceTableName",
+                                                    "type": "Expression"
+                                                },
+                                                "pSourceSystemCode": {
+                                                    "value": "@item().SourceSystemCode",
+                                                    "type": "Expression"
+                                                },
+                                                "pTargetStorageAccount": {
+                                                    "value": "@item().TargetStorageAccount",
+                                                    "type": "Expression"
+                                                },
+                                                "pTargetStorageContainer": {
+                                                    "value": "@item().TargetStorageContainer",
+                                                    "type": "Expression"
+                                                },
+                                                "pSourceSystem": {
+                                                    "value": "@item().SourceSystem",
+                                                    "type": "Expression"
+                                                },
+                                                "pTargetTableSchema": {
+                                                    "value": "@item().TargetTableSchema",
+                                                    "type": "Expression"
+                                                },
+                                                "pSourceJsonCollectionReference": {
+                                                    "value": "@item().SourceJsonCollectionReference",
+                                                    "type": "Expression"
+                                                },
+                                                "pSourceJsonPageReference": {
+                                                    "value": "@item().SourceJsonPageInfoReference",
+                                                    "type": "Expression"
+                                                },
+                                                "pOffsetAttribute": {
+                                                    "value": "@item().SourceJsonPageNavigationAttribute",
+                                                    "type": "Expression"
+                                                },
+                                                "pHasNextPageAttribute": {
+                                                    "value": "@item().SourceJsonPageInfoAttribute",
+                                                    "type": "Expression"
+                                                },
+                                                "pOffsetAttributeInitialValue": {
+                                                    "value": "@item().SourceJsonPageNavigationAttributeInitialValue",
+                                                    "type": "Expression"
+                                                }
+                                            }
+                                        }
+                                    }
+                                ],
+                                "ifTrueActivities": [
+                                    {
+                                        "name": "pl_graphql_paged_request_full",
+                                        "type": "ExecutePipeline",
+                                        "dependsOn": [
+                                            {
+                                                "activity": "delete_destination",
+                                                "dependencyConditions": [
+                                                    "Succeeded"
+                                                ]
+                                            }
+                                        ],
+                                        "policy": {
+                                            "secureInput": false
+                                        },
+                                        "userProperties": [
+                                            {
+                                                "name": "Target Directory",
+                                                "value": "@item().TargetDirectory"
+                                            }
+                                        ],
+                                        "typeProperties": {
+                                            "pipeline": {
+                                                "referenceName": "pl_stg_GraphQL_paged_request",
+                                                "type": "PipelineReference"
+                                            },
+                                            "waitOnCompletion": true,
+                                            "parameters": {
+                                                "pSourceURL": {
+                                                    "value": "@item().SourceURL",
+                                                    "type": "Expression"
+                                                },
+                                                "pGraphQLQuery": {
+                                                    "value": "@item().GraphQLQueryFull\n",
+                                                    "type": "Expression"
+                                                },
+                                                "pTargetDirectory": {
+                                                    "value": "@item().TargetDirectory",
+                                                    "type": "Expression"
+                                                },
+                                                "pTabularTranslatorObject": {
+                                                    "value": "@item().TabularTranslatorObject",
+                                                    "type": "Expression"
+                                                },
+                                                "pGraphQLMetadataQuery": {
+                                                    "value": "@item().GraphQLMetadataQueryFull\n\n",
+                                                    "type": "Expression"
+                                                },
+                                                "pSourceKeyVaultSecret1": {
+                                                    "value": "@item().SourceKeyVaultSecret1",
+                                                    "type": "Expression"
+                                                },
+                                                "pTargetTableName": {
+                                                    "value": "@item().TargetTableName",
+                                                    "type": "Expression"
+                                                },
+                                                "pSourceTableName": {
+                                                    "value": "@item().SourceTableName",
+                                                    "type": "Expression"
+                                                },
+                                                "pSourceSystemCode": {
+                                                    "value": "@item().SourceSystemCode",
+                                                    "type": "Expression"
+                                                },
+                                                "pTargetStorageAccount": {
+                                                    "value": "@item().TargetStorageAccount",
+                                                    "type": "Expression"
+                                                },
+                                                "pTargetStorageContainer": {
+                                                    "value": "@item().TargetStorageContainer",
+                                                    "type": "Expression"
+                                                },
+                                                "pSourceSystem": {
+                                                    "value": "@item().SourceSystem",
+                                                    "type": "Expression"
+                                                },
+                                                "pTargetTableSchema": {
+                                                    "value": "@item().TargetTableSchema",
+                                                    "type": "Expression"
+                                                },
+                                                "pSourceJsonCollectionReference": {
+                                                    "value": "@item().SourceJsonCollectionReference",
+                                                    "type": "Expression"
+                                                },
+                                                "pSourceJsonPageReference": {
+                                                    "value": "@item().SourceJsonPageInfoReference",
+                                                    "type": "Expression"
+                                                },
+                                                "pOffsetAttribute": {
+                                                    "value": "@item().SourceJsonPageNavigationAttribute",
+                                                    "type": "Expression"
+                                                },
+                                                "pHasNextPageAttribute": {
+                                                    "value": "@item().SourceJsonPageInfoAttribute",
+                                                    "type": "Expression"
+                                                },
+                                                "pOffsetAttributeInitialValue": {
+                                                    "value": "@item().SourceJsonPageNavigationAttributeInitialValue",
+                                                    "type": "Expression"
+                                                }
+                                            }
+                                        }
+                                    },
+                                    {
+                                        "name": "delete_destination",
+                                        "type": "Delete",
+                                        "dependsOn": [],
+                                        "policy": {
+                                            "timeout": "0.12:00:00",
+                                            "retry": 0,
+                                            "retryIntervalInSeconds": 30,
+                                            "secureOutput": false,
+                                            "secureInput": false
+                                        },
+                                        "userProperties": [],
+                                        "typeProperties": {
+                                            "dataset": {
+                                                "referenceName": "DS_ADL_Parquet_Delete",
+                                                "type": "DatasetReference",
+                                                "parameters": {
+                                                    "TargetStorageAccount": {
+                                                        "value": "@item().TargetStorageAccount",
+                                                        "type": "Expression"
+                                                    },
+                                                    "TargetContainer": {
+                                                        "value": "@item().TargetStorageContainer",
+                                                        "type": "Expression"
+                                                    },
+                                                    "TargetDirectory": {
+                                                        "value": "@item().TargetDirectory",
+                                                        "type": "Expression"
+                                                    }
+                                                }
+                                            },
+                                            "enableLogging": false,
+                                            "storeSettings": {
+                                                "type": "AzureBlobFSReadSettings",
+                                                "recursive": true,
+                                                "enablePartitionDiscovery": false
+                                            }
+                                        }
+                                    },
+                                    {
+                                        "name": "sc_update_initial_load",
+                                        "type": "Script",
+                                        "dependsOn": [
+                                            {
+                                                "activity": "pl_graphql_paged_request_full",
+                                                "dependencyConditions": [
+                                                    "Succeeded"
+                                                ]
+                                            }
+                                        ],
+                                        "policy": {
+                                            "timeout": "0.12:00:00",
+                                            "retry": 0,
+                                            "retryIntervalInSeconds": 30,
+                                            "secureOutput": false,
+                                            "secureInput": false
+                                        },
+                                        "userProperties": [],
+                                        "linkedServiceName": {
+                                            "referenceName": "LS_ASQL_Control",
+                                            "type": "LinkedServiceReference"
+                                        },
+                                        "typeProperties": {
+                                            "scripts": [
+                                                {
+                                                    "type": "Query",
+                                                    "text": {
+                                                        "value": "UPDATE ETL.Config_Staging\nSET InitialLoad = 'N'\nWHERE ConfigStagingID = @{item().ConfigStagingID}",
+                                                        "type": "Expression"
+                                                    }
+                                                }
+                                            ],
+                                            "scriptBlockExecutionTimeout": "02:00:00"
+                                        }
+                                    }
+                                ]
+                            }
+                        }
+                    ]
+                }
+            },
+            {
+                "name": "SP_UpdateLogPipelineBatchEndSuccess",
+                "type": "SqlServerStoredProcedure",
+                "dependsOn": [
+                    {
+                        "activity": "FE_LoadStaging",
+                        "dependencyConditions": [
+                            "Succeeded"
+                        ]
+                    }
+                ],
+                "policy": {
+                    "timeout": "7.00:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "userProperties": [],
+                "typeProperties": {
+                    "storedProcedureName": "[ETL].[uspUpdate_LogPipelineBatchEndSuccess]",
+                    "storedProcedureParameters": {
+                        "PipelineBatchID": {
+                            "value": {
+                                "value": "@activity('LU_UpdateLogPipelineBatchStart').output.firstrow.PipelineBatchID",
+                                "type": "Expression"
+                            },
+                            "type": "Int32"
+                        }
+                    }
+                },
+                "linkedServiceName": {
+                    "referenceName": "LS_ASQL_Control",
+                    "type": "LinkedServiceReference"
+                }
+            },
+            {
+                "name": "SP_UpdateLogPipelineBatchEndFailure",
+                "type": "SqlServerStoredProcedure",
+                "dependsOn": [
+                    {
+                        "activity": "FE_LoadStaging",
+                        "dependencyConditions": [
+                            "Failed"
+                        ]
+                    }
+                ],
+                "policy": {
+                    "timeout": "7.00:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "userProperties": [],
+                "typeProperties": {
+                    "storedProcedureName": "[ETL].[uspUpdate_LogPipelineBatchEndFailure]",
+                    "storedProcedureParameters": {
+                        "PipelineBatchID": {
+                            "value": {
+                                "value": "@activity('LU_UpdateLogPipelineBatchStart').output.firstrow.PipelineBatchID",
+                                "type": "Expression"
+                            },
+                            "type": "Int32"
+                        }
+                    }
+                },
+                "linkedServiceName": {
+                    "referenceName": "LS_ASQL_Control",
+                    "type": "LinkedServiceReference"
+                }
+            },
+            {
+                "name": "LU_UpdateLogPipelineBatchStart",
+                "description": "",
+                "type": "Lookup",
+                "dependsOn": [],
+                "policy": {
+                    "timeout": "7.00:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "userProperties": [],
+                "typeProperties": {
+                    "source": {
+                        "type": "AzureSqlSource",
+                        "sqlReaderStoredProcedureName": "[ETL].[uspUpdate_LogPipelineBatchStart]",
+                        "storedProcedureParameters": {
+                            "Pipeline": {
+                                "type": "String",
+                                "value": {
+                                    "value": "@pipeline().Pipeline",
+                                    "type": "Expression"
+                                }
+                            },
+                            "PipelineRunID": {
+                                "type": "String",
+                                "value": {
+                                    "value": "@pipeline().RunId",
+                                    "type": "Expression"
+                                }
+                            },
+                            "TriggerType": {
+                                "type": "String",
+                                "value": {
+                                    "value": "@pipeline().TriggerType",
+                                    "type": "Expression"
+                                }
+                            },
+                            "ParentPipeline": {
+                                "type": "String",
+                                "value": {
+                                    "value": "@pipeline()?.TriggeredByPipelineName",
+                                    "type": "Expression"
+                                }
+                            }
+                        },
+                        "queryTimeout": "02:00:00",
+                        "partitionOption": "None"
+                    },
+                    "dataset": {
+                        "referenceName": "DS_ASQL_ADMIN",
+                        "type": "DatasetReference",
+                        "parameters": {
+                            "SchemaName": "x",
+                            "TableName": "x"
+                        }
+                    }
+                }
+            }
+        ],
+        "parameters": {
+            "pBatchName": {
+                "type": "string",
+                "defaultValue": "prod"
+            },
+            "pTargetTableName": {
+                "type": "string"
+            }
+        },
+        "folder": {
+            "name": "PL_01_Staging/GraphQL"
+        },
+        "annotations": [],
+        "lastPublishTime": "2025-12-04T15:30:40Z"
+    },
+    "type": "Microsoft.DataFactory/factories/pipelines"
+}

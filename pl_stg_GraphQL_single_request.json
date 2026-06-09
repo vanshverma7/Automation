@@ -1,0 +1,598 @@
+{
+    "name": "pl_stg_GraphQL_single_request",
+    "properties": {
+        "activities": [
+            {
+                "name": "web_post_request",
+                "type": "WebActivity",
+                "dependsOn": [],
+                "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "userProperties": [],
+                "typeProperties": {
+                    "method": "POST",
+                    "headers": {
+                        "Authorization": {
+                            "value": "token @{pipeline().parameters.pToken}",
+                            "type": "Expression"
+                        },
+                        "Content-Type": "application/json"
+                    },
+                    "turnOffAsync": true,
+                    "url": {
+                        "value": "@pipeline().parameters.pSourceURL",
+                        "type": "Expression"
+                    },
+                    "body": {
+                        "value": "{query:\"@{pipeline().parameters.pGraphQLMetadataQuery}\"}",
+                        "type": "Expression"
+                    }
+                }
+            },
+            {
+                "name": "if_data_returned",
+                "type": "IfCondition",
+                "dependsOn": [
+                    {
+                        "activity": "pl_process_reponse",
+                        "dependencyConditions": [
+                            "Succeeded"
+                        ]
+                    }
+                ],
+                "userProperties": [],
+                "typeProperties": {
+                    "expression": {
+                        "value": "@greater(activity('pl_process_reponse').output.pipelineReturnValue.record_count,0)",
+                        "type": "Expression"
+                    },
+                    "ifFalseActivities": [
+                        {
+                            "name": "sv_pipeline_return_no_data",
+                            "type": "SetVariable",
+                            "dependsOn": [],
+                            "policy": {
+                                "secureOutput": false,
+                                "secureInput": false
+                            },
+                            "userProperties": [],
+                            "typeProperties": {
+                                "variableName": "pipelineReturnValue",
+                                "value": [
+                                    {
+                                        "key": "page_info",
+                                        "value": {
+                                            "type": "Expression",
+                                            "content": "@activity('pl_process_reponse').output.pipelineReturnValue"
+                                        }
+                                    },
+                                    {
+                                        "key": "copy_data",
+                                        "value": {
+                                            "type": "Null"
+                                        }
+                                    }
+                                ],
+                                "setSystemVariable": true
+                            }
+                        }
+                    ],
+                    "ifTrueActivities": [
+                        {
+                            "name": "cd_rest_parquet",
+                            "type": "Copy",
+                            "dependsOn": [],
+                            "policy": {
+                                "timeout": "0.12:00:00",
+                                "retry": 0,
+                                "retryIntervalInSeconds": 30,
+                                "secureOutput": false,
+                                "secureInput": false
+                            },
+                            "userProperties": [],
+                            "typeProperties": {
+                                "source": {
+                                    "type": "RestSource",
+                                    "httpRequestTimeout": "00:01:40",
+                                    "requestInterval": "00.00:00:00.010",
+                                    "requestMethod": "POST",
+                                    "requestBody": {
+                                        "value": "{query:\"@{pipeline().parameters.pGraphQLQuery}\"}\n\n\n\n\n",
+                                        "type": "Expression"
+                                    },
+                                    "additionalHeaders": {
+                                        "Authorization": {
+                                            "value": "token @{pipeline().parameters.pToken}",
+                                            "type": "Expression"
+                                        },
+                                        "Content-Type": "application/json"
+                                    }
+                                },
+                                "sink": {
+                                    "type": "ParquetSink",
+                                    "storeSettings": {
+                                        "type": "AzureBlobFSWriteSettings",
+                                        "copyBehavior": "FlattenHierarchy",
+                                        "metadata": [
+                                            {
+                                                "name": "source_system_code",
+                                                "value": {
+                                                    "value": "@pipeline().parameters.pSourceSystemCode",
+                                                    "type": "Expression"
+                                                }
+                                            }
+                                        ]
+                                    },
+                                    "formatSettings": {
+                                        "type": "ParquetWriteSettings"
+                                    }
+                                },
+                                "enableStaging": false,
+                                "translator": {
+                                    "value": "@json(pipeline().parameters.pTabularTranslatorObject)",
+                                    "type": "Expression"
+                                }
+                            },
+                            "inputs": [
+                                {
+                                    "referenceName": "DS_REST_SourceSystem",
+                                    "type": "DatasetReference",
+                                    "parameters": {
+                                        "pUrl": {
+                                            "value": "@pipeline().parameters.pSourceURL",
+                                            "type": "Expression"
+                                        }
+                                    }
+                                }
+                            ],
+                            "outputs": [
+                                {
+                                    "referenceName": "DS_ADL_Parquet_Target",
+                                    "type": "DatasetReference",
+                                    "parameters": {
+                                        "TargetStorageAccount": {
+                                            "value": "@pipeline().parameters.pTargetStorageAccount",
+                                            "type": "Expression"
+                                        },
+                                        "TargetContainer": {
+                                            "value": "@pipeline().parameters.pTargetStorageContainer",
+                                            "type": "Expression"
+                                        },
+                                        "TargetDirectory": {
+                                            "value": "@pipeline().parameters.pTargetDirectory",
+                                            "type": "Expression"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        {
+                            "name": "sv_pipeline_return_success",
+                            "type": "SetVariable",
+                            "dependsOn": [
+                                {
+                                    "activity": "cd_rest_parquet",
+                                    "dependencyConditions": [
+                                        "Succeeded"
+                                    ]
+                                }
+                            ],
+                            "policy": {
+                                "secureOutput": false,
+                                "secureInput": false
+                            },
+                            "userProperties": [],
+                            "typeProperties": {
+                                "variableName": "pipelineReturnValue",
+                                "value": [
+                                    {
+                                        "key": "page_info",
+                                        "value": {
+                                            "type": "Expression",
+                                            "content": "@activity('pl_process_reponse').output.pipelineReturnValue"
+                                        }
+                                    },
+                                    {
+                                        "key": "copy_data",
+                                        "value": {
+                                            "type": "Expression",
+                                            "content": "@activity('cd_rest_parquet').output"
+                                        }
+                                    }
+                                ],
+                                "setSystemVariable": true
+                            }
+                        }
+                    ]
+                }
+            },
+            {
+                "name": "pl_process_reponse",
+                "type": "ExecutePipeline",
+                "dependsOn": [
+                    {
+                        "activity": "web_post_request",
+                        "dependencyConditions": [
+                            "Succeeded"
+                        ]
+                    }
+                ],
+                "policy": {
+                    "secureInput": false
+                },
+                "userProperties": [],
+                "typeProperties": {
+                    "pipeline": {
+                        "referenceName": "pl_utl_GraphQL_get_reponse_metadata",
+                        "type": "PipelineReference"
+                    },
+                    "waitOnCompletion": true,
+                    "parameters": {
+                        "p_data": {
+                            "value": "@activity('web_post_request').output",
+                            "type": "Expression"
+                        },
+                        "p_page_reference": {
+                            "value": "@pipeline().parameters.pSourceJsonPageReference",
+                            "type": "Expression"
+                        },
+                        "p_collection_reference": {
+                            "value": "@pipeline().parameters.pSourceJsonCollectionReference",
+                            "type": "Expression"
+                        },
+                        "p_offset_attribute": {
+                            "value": "@pipeline().parameters.pOffsetAttribute",
+                            "type": "Expression"
+                        },
+                        "p_has_next_page_attribute": {
+                            "value": "@pipeline().parameters.pHasNextPageAttribute",
+                            "type": "Expression"
+                        }
+                    }
+                }
+            },
+            {
+                "name": "sv_pipeline_return_failure",
+                "type": "SetVariable",
+                "dependsOn": [
+                    {
+                        "activity": "if_data_returned",
+                        "dependencyConditions": [
+                            "Failed"
+                        ]
+                    }
+                ],
+                "policy": {
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "userProperties": [],
+                "typeProperties": {
+                    "variableName": "pipelineReturnValue",
+                    "value": [
+                        {
+                            "key": "page_info",
+                            "value": {
+                                "type": "Expression",
+                                "content": "@activity('pl_process_reponse').output.pipelineReturnValue"
+                            }
+                        },
+                        {
+                            "key": "copy_data",
+                            "value": {
+                                "type": "Expression",
+                                "content": "@activity('cd_rest_parquet').output"
+                            }
+                        }
+                    ],
+                    "setSystemVariable": true
+                }
+            },
+            {
+                "name": "fail_cd_rest_parquet",
+                "type": "Fail",
+                "dependsOn": [
+                    {
+                        "activity": "sv_pipeline_return_failure",
+                        "dependencyConditions": [
+                            "Succeeded"
+                        ]
+                    }
+                ],
+                "userProperties": [],
+                "typeProperties": {
+                    "message": {
+                        "value": "Step cd_rest_parquet failed with message: @{activity('cd_rest_parquet').output.Errors[0].Message}",
+                        "type": "Expression"
+                    },
+                    "errorCode": {
+                        "value": "@activity('cd_rest_parquet').output.Errors[0].Code",
+                        "type": "Expression"
+                    }
+                }
+            }
+        ],
+        "parameters": {
+            "pSourceURL": {
+                "type": "string",
+                "defaultValue": "https://www.xledger.net/graphql"
+            },
+            "pGraphQLQuery": {
+                "type": "string",
+                "defaultValue": "{   banks(     first: 100     after: \\\"0\\\"     filter: { AND: [                     { modifiedAt_gt: \\\"1900-01-01T00:00:00\\\" }                     { modifiedAt_lt: \\\"2024-11-01T18:38:34\\\" }                    ]             }   ){     edges {       node {           dbId           code           description           phone           createdAt           modifiedAt           ownerDbId           isBankingCenter           fractionalRoutingNumber           bankName           bankRegister           bankRouting           bankTransit           branch           clearingCode           fax           internalId           swiftReimbursementBank           swift           swiftOutbound           country {             dbId           }           address {             dbId           }       }     }   } }"
+            },
+            "pGraphQLMetadataQuery": {
+                "type": "string",
+                "defaultValue": "{   banks( first: 100 after : \\\"0\\\" ){ edges{ node{dbId} cursor } pageInfo{ hasNextPage } } }"
+            },
+            "pTargetDirectory": {
+                "type": "string",
+                "defaultValue": "xledger_test/corp/xlg_bank"
+            },
+            "pTabularTranslatorObject": {
+                "type": "string",
+                "defaultValue": {
+                    "type": "TabularTranslator",
+                    "mappings": [
+                        {
+                            "source": {
+                                "path": "['node']['dbId']"
+                            },
+                            "sink": {
+                                "name": "bank_dbid",
+                                "type": "Int64"
+                            }
+                        },
+                        {
+                            "source": {
+                                "path": "['node']['code']"
+                            },
+                            "sink": {
+                                "name": "node_code",
+                                "type": "String"
+                            }
+                        },
+                        {
+                            "source": {
+                                "path": "['node']['description']"
+                            },
+                            "sink": {
+                                "name": "description",
+                                "type": "String"
+                            }
+                        },
+                        {
+                            "source": {
+                                "path": "['node']['phone']"
+                            },
+                            "sink": {
+                                "name": "phone",
+                                "type": "String"
+                            }
+                        },
+                        {
+                            "source": {
+                                "path": "['node']['createdAt']"
+                            },
+                            "sink": {
+                                "name": "created_at",
+                                "type": "DateTime",
+                                "dateTimeFormat": "yyyy-MM-ddTHH:mm:ss"
+                            }
+                        },
+                        {
+                            "source": {
+                                "path": "['node']['modifiedAt']"
+                            },
+                            "sink": {
+                                "name": "modified_at",
+                                "type": "DateTime",
+                                "dateTimeFormat": "yyyy-MM-ddTHH:mm:ss"
+                            }
+                        },
+                        {
+                            "source": {
+                                "path": "['node']['ownerDbId']"
+                            },
+                            "sink": {
+                                "name": "owner_dbid",
+                                "type": "Int64"
+                            }
+                        },
+                        {
+                            "source": {
+                                "path": "['node']['isBankingCenter']"
+                            },
+                            "sink": {
+                                "name": "is_banking_center",
+                                "type": "Boolean"
+                            }
+                        },
+                        {
+                            "source": {
+                                "path": "['node']['fractionalRoutingNumber']"
+                            },
+                            "sink": {
+                                "name": "fractional_routing_number",
+                                "type": "String"
+                            }
+                        },
+                        {
+                            "source": {
+                                "path": "['node']['bankName']"
+                            },
+                            "sink": {
+                                "name": "bank_name",
+                                "type": "String"
+                            }
+                        },
+                        {
+                            "source": {
+                                "path": "['node']['bankRegister']"
+                            },
+                            "sink": {
+                                "name": "bank_register",
+                                "type": "String"
+                            }
+                        },
+                        {
+                            "source": {
+                                "path": "['node']['bankRouting']"
+                            },
+                            "sink": {
+                                "name": "bank_routing",
+                                "type": "String"
+                            }
+                        },
+                        {
+                            "source": {
+                                "path": "['node']['bankTransit']"
+                            },
+                            "sink": {
+                                "name": "bank_transit",
+                                "type": "String"
+                            }
+                        },
+                        {
+                            "source": {
+                                "path": "['node']['branch']"
+                            },
+                            "sink": {
+                                "name": "branch",
+                                "type": "String"
+                            }
+                        },
+                        {
+                            "source": {
+                                "path": "['node']['clearingCode']"
+                            },
+                            "sink": {
+                                "name": "clearing_code",
+                                "type": "String"
+                            }
+                        },
+                        {
+                            "source": {
+                                "path": "['node']['fax']"
+                            },
+                            "sink": {
+                                "name": "fax",
+                                "type": "String"
+                            }
+                        },
+                        {
+                            "source": {
+                                "path": "['node']['internalId']"
+                            },
+                            "sink": {
+                                "name": "internal_id",
+                                "type": "Int64"
+                            }
+                        },
+                        {
+                            "source": {
+                                "path": "['node']['swiftReimbursementBank']"
+                            },
+                            "sink": {
+                                "name": "swift_reimbursement_bank",
+                                "type": "String"
+                            }
+                        },
+                        {
+                            "source": {
+                                "path": "['node']['swift']"
+                            },
+                            "sink": {
+                                "name": "swift",
+                                "type": "String"
+                            }
+                        },
+                        {
+                            "source": {
+                                "path": "['node']['swiftOutbound']"
+                            },
+                            "sink": {
+                                "name": "swift_outbound",
+                                "type": "String"
+                            }
+                        },
+                        {
+                            "source": {
+                                "path": "['node']['country']['dbId']"
+                            },
+                            "sink": {
+                                "name": "country_dbid",
+                                "type": "Int64"
+                            }
+                        },
+                        {
+                            "source": {
+                                "path": "['node']['address']['dbId']"
+                            },
+                            "sink": {
+                                "name": "address_dbid",
+                                "type": "Int64"
+                            }
+                        }
+                    ],
+                    "collectionReference": "$['data']['banks']['edges']"
+                }
+            },
+            "pSourceKeyVaultSecret1": {
+                "type": "string",
+                "defaultValue": "xledgerAPIToken"
+            },
+            "pTargetTableName": {
+                "type": "string",
+                "defaultValue": "xlg_bank"
+            },
+            "pSourceTableName": {
+                "type": "string",
+                "defaultValue": "banks"
+            },
+            "pSourceSystemCode": {
+                "type": "string",
+                "defaultValue": "xledger"
+            },
+            "pTargetStorageAccount": {
+                "type": "string",
+                "defaultValue": "sanestdpdevuksdbwh"
+            },
+            "pTargetStorageContainer": {
+                "type": "string",
+                "defaultValue": "dla-land"
+            },
+            "pToken": {
+                "type": "string",
+                "defaultValue": "AABDSiTnUwAAAAACJKjP2qD4YzAQkOZemHf8uL5h1PZEqpVkDQ-ua5Cfdzi9Ryw7RkngPt3jg1RJg6GJZbUh6mmNhOa2WNJ79FpbAkp6iOxPUVbgjOH8L05uOmGYuPloXPLfXlxN1x88bOWLUO9Pysps-Rw0ju5DzjWCpXNhbLor184h1F1IqIgTa8GJePz-P86Cp_zIfGEuEIQIfVajBQYEFlsJKMj-WH_15S2u5ZI9syggsuvqNFpgaK0sTchz-cNNFEJNXDQRLk0yfWCVypqSwoCzHxXCdHVeBAc88GFHVrGg8uQLy2QTt8wFDbYHVtNj9oY2jfVqf-fAvE4A"
+            },
+            "pSourceJsonCollectionReference": {
+                "type": "string",
+                "defaultValue": "$['data']['banks']['edges']"
+            },
+            "pSourceJsonPageReference": {
+                "type": "string",
+                "defaultValue": "$['data']['banks']['pageInfo']"
+            },
+            "pOffsetAttribute": {
+                "type": "string",
+                "defaultValue": "cursor"
+            },
+            "pHasNextPageAttribute": {
+                "type": "string",
+                "defaultValue": "hasNextPage"
+            }
+        },
+        "folder": {
+            "name": "PL_01_Staging/GraphQL"
+        },
+        "annotations": [],
+        "lastPublishTime": "2025-12-04T15:30:39Z"
+    },
+    "type": "Microsoft.DataFactory/factories/pipelines"
+}

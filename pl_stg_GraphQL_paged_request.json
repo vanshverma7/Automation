@@ -1,0 +1,802 @@
+{
+    "name": "pl_stg_GraphQL_paged_request",
+    "properties": {
+        "activities": [
+            {
+                "name": "until_no_data",
+                "type": "Until",
+                "dependsOn": [
+                    {
+                        "activity": "sv_v_entity_page_query",
+                        "dependencyConditions": [
+                            "Succeeded"
+                        ]
+                    },
+                    {
+                        "activity": "sv_v_meta_page_query",
+                        "dependencyConditions": [
+                            "Succeeded"
+                        ]
+                    }
+                ],
+                "userProperties": [],
+                "typeProperties": {
+                    "expression": {
+                        "value": "@or(not(activity('pl_graphql_single_request').output.pipelineReturnValue.page_info.has_next_page), greater(variables('v_error_code'), 0))",
+                        "type": "Expression"
+                    },
+                    "activities": [
+                        {
+                            "name": "pl_graphql_single_request",
+                            "type": "ExecutePipeline",
+                            "dependsOn": [
+                                {
+                                    "activity": "sv_v_error_code_initialise",
+                                    "dependencyConditions": [
+                                        "Succeeded"
+                                    ]
+                                }
+                            ],
+                            "policy": {
+                                "secureInput": false
+                            },
+                            "userProperties": [],
+                            "typeProperties": {
+                                "pipeline": {
+                                    "referenceName": "pl_stg_GraphQL_single_request",
+                                    "type": "PipelineReference"
+                                },
+                                "waitOnCompletion": true,
+                                "parameters": {
+                                    "pSourceURL": {
+                                        "value": "@pipeline().parameters.pSourceURL",
+                                        "type": "Expression"
+                                    },
+                                    "pGraphQLQuery": {
+                                        "value": "@variables('vPagedGraphQLQuery')",
+                                        "type": "Expression"
+                                    },
+                                    "pGraphQLMetadataQuery": {
+                                        "value": "@variables('vPagedMetadataGraphQLQuery')",
+                                        "type": "Expression"
+                                    },
+                                    "pTargetDirectory": {
+                                        "value": "@pipeline().parameters.pTargetDirectory",
+                                        "type": "Expression"
+                                    },
+                                    "pTabularTranslatorObject": {
+                                        "value": "@pipeline().parameters.pTabularTranslatorObject",
+                                        "type": "Expression"
+                                    },
+                                    "pSourceKeyVaultSecret1": {
+                                        "value": "@pipeline().parameters.pSourceKeyVaultSecret1",
+                                        "type": "Expression"
+                                    },
+                                    "pTargetTableName": {
+                                        "value": "@pipeline().parameters.pTargetTableName",
+                                        "type": "Expression"
+                                    },
+                                    "pSourceTableName": {
+                                        "value": "@pipeline().parameters.pSourceTableName",
+                                        "type": "Expression"
+                                    },
+                                    "pSourceSystemCode": {
+                                        "value": "@pipeline().parameters.pSourceSystemCode",
+                                        "type": "Expression"
+                                    },
+                                    "pTargetStorageAccount": {
+                                        "value": "@pipeline().parameters.pTargetStorageAccount",
+                                        "type": "Expression"
+                                    },
+                                    "pTargetStorageContainer": {
+                                        "value": "@pipeline().parameters.pTargetStorageContainer",
+                                        "type": "Expression"
+                                    },
+                                    "pToken": {
+                                        "value": "@activity('ep_get_kv_secret').output.pipelineReturnValue.key_vault_secret_value",
+                                        "type": "Expression"
+                                    },
+                                    "pSourceJsonCollectionReference": {
+                                        "value": "@pipeline().parameters.pSourceJsonCollectionReference",
+                                        "type": "Expression"
+                                    },
+                                    "pSourceJsonPageReference": {
+                                        "value": "@pipeline().parameters.pSourceJsonPageReference",
+                                        "type": "Expression"
+                                    },
+                                    "pOffsetAttribute": {
+                                        "value": "@pipeline().parameters.pOffsetAttribute",
+                                        "type": "Expression"
+                                    },
+                                    "pHasNextPageAttribute": {
+                                        "value": "@pipeline().parameters.pHasNextPageAttribute",
+                                        "type": "Expression"
+                                    }
+                                }
+                            }
+                        },
+                        {
+                            "name": "sv_v_cursor_offset",
+                            "type": "SetVariable",
+                            "dependsOn": [
+                                {
+                                    "activity": "pl_graphql_single_request",
+                                    "dependencyConditions": [
+                                        "Succeeded"
+                                    ]
+                                }
+                            ],
+                            "policy": {
+                                "secureOutput": false,
+                                "secureInput": false
+                            },
+                            "userProperties": [],
+                            "typeProperties": {
+                                "variableName": "v_cursor_offset",
+                                "value": {
+                                    "value": "@activity('pl_graphql_single_request').output.pipelineReturnValue.page_info.max_offset_value",
+                                    "type": "Expression"
+                                }
+                            }
+                        },
+                        {
+                            "name": "sv_v_query_new_cursor",
+                            "type": "SetVariable",
+                            "dependsOn": [
+                                {
+                                    "activity": "sv_v_cursor_offset",
+                                    "dependencyConditions": [
+                                        "Succeeded"
+                                    ]
+                                }
+                            ],
+                            "policy": {
+                                "secureOutput": false,
+                                "secureInput": false
+                            },
+                            "userProperties": [],
+                            "typeProperties": {
+                                "variableName": "vPagedGraphQLQuery",
+                                "value": {
+                                    "value": "@replace(replace(pipeline().parameters.pGraphQLQuery, '{{cursor_offset}}', variables('v_cursor_offset')), '{{to}}', variables('v_new_token'))",
+                                    "type": "Expression"
+                                }
+                            }
+                        },
+                        {
+                            "name": "sv_v_meta_query_new_cursor",
+                            "type": "SetVariable",
+                            "dependsOn": [
+                                {
+                                    "activity": "sv_v_cursor_offset",
+                                    "dependencyConditions": [
+                                        "Succeeded"
+                                    ]
+                                }
+                            ],
+                            "policy": {
+                                "secureOutput": false,
+                                "secureInput": false
+                            },
+                            "userProperties": [],
+                            "typeProperties": {
+                                "variableName": "vPagedMetadataGraphQLQuery",
+                                "value": {
+                                    "value": "@replace(replace(pipeline().parameters.pGraphQLMetadataQuery, '{{cursor_offset}}', variables('v_cursor_offset')), '{{to}}', variables('v_new_token'))",
+                                    "type": "Expression"
+                                }
+                            }
+                        },
+                        {
+                            "name": "sv_v_error_code_initialise",
+                            "type": "SetVariable",
+                            "dependsOn": [],
+                            "policy": {
+                                "secureOutput": false,
+                                "secureInput": false
+                            },
+                            "userProperties": [],
+                            "typeProperties": {
+                                "variableName": "v_error_code",
+                                "value": 0
+                            }
+                        },
+                        {
+                            "name": "sv_v_error_code_failure",
+                            "type": "SetVariable",
+                            "dependsOn": [
+                                {
+                                    "activity": "pl_graphql_single_request",
+                                    "dependencyConditions": [
+                                        "Failed"
+                                    ]
+                                }
+                            ],
+                            "policy": {
+                                "secureOutput": false,
+                                "secureInput": false
+                            },
+                            "userProperties": [],
+                            "typeProperties": {
+                                "variableName": "v_error_code",
+                                "value": {
+                                    "value": "@activity('pl_graphql_single_request').output.pipelineReturnValue.copy_data.Errors[0].Code",
+                                    "type": "Expression"
+                                }
+                            }
+                        }
+                    ],
+                    "timeout": "0.12:00:00"
+                }
+            },
+            {
+                "name": "sv_v_entity_page_query",
+                "type": "SetVariable",
+                "dependsOn": [
+                    {
+                        "activity": "sv_v_new_token",
+                        "dependencyConditions": [
+                            "Succeeded"
+                        ]
+                    }
+                ],
+                "policy": {
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "userProperties": [],
+                "typeProperties": {
+                    "variableName": "vPagedGraphQLQuery",
+                    "value": {
+                        "value": "@replace(replace(pipeline().parameters.pGraphQLQuery, '{{cursor_offset}}', variables('v_cursor_offset')), '{{to}}', variables('v_new_token'))",
+                        "type": "Expression"
+                    }
+                }
+            },
+            {
+                "name": "sv_v_meta_page_query",
+                "type": "SetVariable",
+                "dependsOn": [
+                    {
+                        "activity": "sv_v_new_token",
+                        "dependencyConditions": [
+                            "Succeeded"
+                        ]
+                    }
+                ],
+                "policy": {
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "userProperties": [],
+                "typeProperties": {
+                    "variableName": "vPagedMetadataGraphQLQuery",
+                    "value": {
+                        "value": "@replace(replace(pipeline().parameters.pGraphQLMetadataQuery, '{{cursor_offset}}', variables('v_cursor_offset')), '{{to}}', variables('v_new_token'))",
+                        "type": "Expression"
+                    }
+                }
+            },
+            {
+                "name": "LU_UpdateLogPipelineStart",
+                "description": "",
+                "type": "Lookup",
+                "dependsOn": [],
+                "policy": {
+                    "timeout": "7.00:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "userProperties": [],
+                "typeProperties": {
+                    "source": {
+                        "type": "AzureSqlSource",
+                        "sqlReaderStoredProcedureName": "[ETL].[uspUpdate_StagingStart]",
+                        "storedProcedureParameters": {
+                            "SourceSystem": {
+                                "type": "String",
+                                "value": {
+                                    "value": "@pipeline().parameters.pSourceSystem",
+                                    "type": "Expression"
+                                }
+                            },
+                            "TargetTableName": {
+                                "type": "String",
+                                "value": {
+                                    "value": "@pipeline().parameters.pTargetTableName",
+                                    "type": "Expression"
+                                }
+                            },
+                            "Debug": {
+                                "type": "String",
+                                "value": null
+                            }
+                        },
+                        "queryTimeout": "02:00:00",
+                        "partitionOption": "None"
+                    },
+                    "dataset": {
+                        "referenceName": "DS_ASQL_ADMIN",
+                        "type": "DatasetReference",
+                        "parameters": {
+                            "SchemaName": "x",
+                            "TableName": "x"
+                        }
+                    }
+                }
+            },
+            {
+                "name": "SP_UpdateStagingEnd",
+                "type": "SqlServerStoredProcedure",
+                "dependsOn": [
+                    {
+                        "activity": "Update Watermark Value",
+                        "dependencyConditions": [
+                            "Completed"
+                        ]
+                    }
+                ],
+                "policy": {
+                    "timeout": "7.00:00:00",
+                    "retry": 2,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "userProperties": [],
+                "typeProperties": {
+                    "storedProcedureName": "[ETL].[uspUpdate_StagingEnd]",
+                    "storedProcedureParameters": {
+                        "SourceSystem": {
+                            "value": {
+                                "value": "@pipeline().parameters.pSourceSystem",
+                                "type": "Expression"
+                            },
+                            "type": "String"
+                        },
+                        "TargetTableName": {
+                            "value": {
+                                "value": "@pipeline().parameters.pTargetTableName",
+                                "type": "Expression"
+                            },
+                            "type": "String"
+                        },
+                        "Debug": {
+                            "value": null
+                        }
+                    }
+                },
+                "linkedServiceName": {
+                    "referenceName": "LS_ASQL_Control",
+                    "type": "LinkedServiceReference"
+                }
+            },
+            {
+                "name": "Update Watermark Value",
+                "type": "SqlServerStoredProcedure",
+                "dependsOn": [
+                    {
+                        "activity": "until_no_data",
+                        "dependencyConditions": [
+                            "Succeeded"
+                        ]
+                    }
+                ],
+                "policy": {
+                    "timeout": "7.00:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "userProperties": [],
+                "typeProperties": {
+                    "storedProcedureName": "[ETL].[uspUpdate_StagingToken]",
+                    "storedProcedureParameters": {
+                        "StagingTableName": {
+                            "value": {
+                                "value": "@pipeline().parameters.pTargetTableName",
+                                "type": "Expression"
+                            },
+                            "type": "String"
+                        },
+                        "Token": {
+                            "value": {
+                                "value": "@variables('v_new_token')",
+                                "type": "Expression"
+                            },
+                            "type": "String"
+                        },
+                        "StagingTableSchema": {
+                            "value": {
+                                "value": "@pipeline().parameters.pTargetTableSchema",
+                                "type": "Expression"
+                            },
+                            "type": "String"
+                        }
+                    }
+                },
+                "linkedServiceName": {
+                    "referenceName": "LS_ASQL_Control",
+                    "type": "LinkedServiceReference"
+                }
+            },
+            {
+                "name": "sv_v_new_token",
+                "type": "SetVariable",
+                "dependsOn": [
+                    {
+                        "activity": "sv_v_cursor_offset_initial",
+                        "dependencyConditions": [
+                            "Succeeded"
+                        ]
+                    }
+                ],
+                "policy": {
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "userProperties": [],
+                "typeProperties": {
+                    "variableName": "v_new_token",
+                    "value": {
+                        "value": "@utcNow('yyyy-MM-ddTHH:mm:ss')",
+                        "type": "Expression"
+                    }
+                }
+            },
+            {
+                "name": "sv_v_cursor_offset_initial",
+                "type": "SetVariable",
+                "dependsOn": [
+                    {
+                        "activity": "ep_get_kv_secret",
+                        "dependencyConditions": [
+                            "Succeeded"
+                        ]
+                    }
+                ],
+                "policy": {
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "userProperties": [],
+                "typeProperties": {
+                    "variableName": "v_cursor_offset",
+                    "value": {
+                        "value": "@pipeline().parameters.pOffsetAttributeInitialValue",
+                        "type": "Expression"
+                    }
+                }
+            },
+            {
+                "name": "ep_get_kv_secret",
+                "type": "ExecutePipeline",
+                "dependsOn": [
+                    {
+                        "activity": "LU_UpdateLogPipelineStart",
+                        "dependencyConditions": [
+                            "Succeeded"
+                        ]
+                    }
+                ],
+                "policy": {
+                    "secureInput": false
+                },
+                "userProperties": [],
+                "typeProperties": {
+                    "pipeline": {
+                        "referenceName": "pl_utl_get_keyvault_secret",
+                        "type": "PipelineReference"
+                    },
+                    "waitOnCompletion": true,
+                    "parameters": {
+                        "p_secret_name": {
+                            "value": "@pipeline().parameters.pSourceKeyVaultSecret1",
+                            "type": "Expression"
+                        }
+                    }
+                }
+            }
+        ],
+        "parameters": {
+            "pSourceURL": {
+                "type": "string",
+                "defaultValue": "https://www.xledger.net/graphql"
+            },
+            "pGraphQLQuery": {
+                "type": "string",
+                "defaultValue": "{   banks(     first: {{page_size}}     after: \\\"{{cursor_offset}}\\\"     filter: {       AND: [         { modifiedAt_gt: \\\"{{date_from}}\\\" }         { modifiedAt_lte: \\\"{{date_to}}\\\" }       ]     }   ) {     edges{         node {         dbId         code         description         phone         createdAt         modifiedAt         ownerDbId         isBankingCenter         fractionalRoutingNumber         bankName         bankRegister         bankRouting         bankTransit         branch         clearingCode         fax         internalId         swiftReimbursementBank         swift         swiftOutbound         country {             dbId         }         address {             dbId         }         }         cursor     }     pageInfo {         hasNextPage     }     } }"
+            },
+            "pTargetDirectory": {
+                "type": "string",
+                "defaultValue": "x-ledger/corp/bank"
+            },
+            "pTabularTranslatorObject": {
+                "type": "string",
+                "defaultValue": {
+                    "type": "TabularTranslator",
+                    "mappings": [
+                        {
+                            "source": {
+                                "path": "['node']['dbId']"
+                            },
+                            "sink": {
+                                "name": "bank_db_id",
+                                "type": "Int64"
+                            }
+                        },
+                        {
+                            "source": {
+                                "path": "['node']['code']"
+                            },
+                            "sink": {
+                                "name": "node_code",
+                                "type": "String"
+                            }
+                        },
+                        {
+                            "source": {
+                                "path": "['node']['description']"
+                            },
+                            "sink": {
+                                "name": "description",
+                                "type": "String"
+                            }
+                        },
+                        {
+                            "source": {
+                                "path": "['node']['phone']"
+                            },
+                            "sink": {
+                                "name": "phone",
+                                "type": "String"
+                            }
+                        },
+                        {
+                            "source": {
+                                "path": "['node']['createdAt']"
+                            },
+                            "sink": {
+                                "name": "created_at",
+                                "type": "DateTime",
+                                "dateTimeFormat": "yyyy-MM-ddTHH:mm:ss"
+                            }
+                        },
+                        {
+                            "source": {
+                                "path": "['node']['modifiedAt']"
+                            },
+                            "sink": {
+                                "name": "modified_at",
+                                "type": "DateTime",
+                                "dateTimeFormat": "yyyy-MM-ddTHH:mm:ss"
+                            }
+                        },
+                        {
+                            "source": {
+                                "path": "['node']['ownerDbId']"
+                            },
+                            "sink": {
+                                "name": "owner_db_id",
+                                "type": "Int64"
+                            }
+                        },
+                        {
+                            "source": {
+                                "path": "['node']['isBankingCenter']"
+                            },
+                            "sink": {
+                                "name": "is_banking_center",
+                                "type": "Boolean"
+                            }
+                        },
+                        {
+                            "source": {
+                                "path": "['node']['fractionalRoutingNumber']"
+                            },
+                            "sink": {
+                                "name": "fractional_routing_number",
+                                "type": "String"
+                            }
+                        },
+                        {
+                            "source": {
+                                "path": "['node']['bankName']"
+                            },
+                            "sink": {
+                                "name": "bank_name",
+                                "type": "String"
+                            }
+                        },
+                        {
+                            "source": {
+                                "path": "['node']['bankRegister']"
+                            },
+                            "sink": {
+                                "name": "bank_register",
+                                "type": "String"
+                            }
+                        },
+                        {
+                            "source": {
+                                "path": "['node']['bankRouting']"
+                            },
+                            "sink": {
+                                "name": "bank_routing",
+                                "type": "String"
+                            }
+                        },
+                        {
+                            "source": {
+                                "path": "['node']['bankTransit']"
+                            },
+                            "sink": {
+                                "name": "bant_transit",
+                                "type": "String"
+                            }
+                        },
+                        {
+                            "source": {
+                                "path": "['node']['branch']"
+                            },
+                            "sink": {
+                                "name": "branch",
+                                "type": "String"
+                            }
+                        },
+                        {
+                            "source": {
+                                "path": "['node']['clearingCode']"
+                            },
+                            "sink": {
+                                "name": "clearing_code",
+                                "type": "String"
+                            }
+                        },
+                        {
+                            "source": {
+                                "path": "['node']['fax']"
+                            },
+                            "sink": {
+                                "name": "fax",
+                                "type": "String"
+                            }
+                        },
+                        {
+                            "source": {
+                                "path": "['node']['internalId']"
+                            },
+                            "sink": {
+                                "name": "internal_id",
+                                "type": "Int64"
+                            }
+                        },
+                        {
+                            "source": {
+                                "path": "['node']['swiftReimbursementBank']"
+                            },
+                            "sink": {
+                                "name": "swift_reimbursement_bank",
+                                "type": "String"
+                            }
+                        },
+                        {
+                            "source": {
+                                "path": "['node']['swift']"
+                            },
+                            "sink": {
+                                "name": "swift",
+                                "type": "String"
+                            }
+                        },
+                        {
+                            "source": {
+                                "path": "['node']['swiftOutbound']"
+                            },
+                            "sink": {
+                                "name": "swift_outbound",
+                                "type": "String"
+                            }
+                        },
+                        {
+                            "source": {
+                                "path": "['node']['country']['dbId']"
+                            },
+                            "sink": {
+                                "name": "country_db_id",
+                                "type": "Int64"
+                            }
+                        },
+                        {
+                            "source": {
+                                "path": "['node']['address']['dbId']"
+                            },
+                            "sink": {
+                                "name": "address_db_id",
+                                "type": "Int64"
+                            }
+                        }
+                    ],
+                    "collectionReference": "$['data']['banks']['edges']",
+                    "mapComplexValuesToString": true
+                }
+            },
+            "pGraphQLMetadataQuery": {
+                "type": "string"
+            },
+            "pSourceKeyVaultSecret1": {
+                "type": "string"
+            },
+            "pTargetTableName": {
+                "type": "string",
+                "defaultValue": "bank"
+            },
+            "pSourceTableName": {
+                "type": "string",
+                "defaultValue": "banks"
+            },
+            "pSourceSystemCode": {
+                "type": "string"
+            },
+            "pTargetStorageAccount": {
+                "type": "string"
+            },
+            "pTargetStorageContainer": {
+                "type": "string"
+            },
+            "pSourceSystem": {
+                "type": "string"
+            },
+            "pTargetTableSchema": {
+                "type": "string"
+            },
+            "pSourceJsonCollectionReference": {
+                "type": "string",
+                "defaultValue": "$['data']['banks']['edges']"
+            },
+            "pSourceJsonPageReference": {
+                "type": "string",
+                "defaultValue": "$['data']['banks']['pageInfo']"
+            },
+            "pOffsetAttribute": {
+                "type": "string",
+                "defaultValue": "cursor"
+            },
+            "pHasNextPageAttribute": {
+                "type": "string",
+                "defaultValue": "hasNextPage"
+            },
+            "pOffsetAttributeInitialValue": {
+                "type": "string",
+                "defaultValue": "0"
+            }
+        },
+        "variables": {
+            "vPagedGraphQLQuery": {
+                "type": "String"
+            },
+            "vPagedMetadataGraphQLQuery": {
+                "type": "String"
+            },
+            "v_cursor_offset": {
+                "type": "String",
+                "defaultValue": "0"
+            },
+            "v_new_token": {
+                "type": "String"
+            },
+            "v_error_code": {
+                "type": "Integer"
+            }
+        },
+        "folder": {
+            "name": "PL_01_Staging/GraphQL"
+        },
+        "annotations": [],
+        "lastPublishTime": "2025-12-04T15:30:39Z"
+    },
+    "type": "Microsoft.DataFactory/factories/pipelines"
+}

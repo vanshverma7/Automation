@@ -1,0 +1,35 @@
+{
+    "name": "pl_1_start_databricks_incremental_refresh_job",
+    "properties": {
+        "activities": [
+            {
+                "name": "pl_utl_databricks_start_job",
+                "type": "ExecutePipeline",
+                "dependsOn": [],
+                "policy": {
+                    "secureInput": false
+                },
+                "userProperties": [],
+                "typeProperties": {
+                    "pipeline": {
+                        "referenceName": "pl_utl_databricks_start_job",
+                        "type": "PipelineReference"
+                    },
+                    "waitOnCompletion": true,
+                    "parameters": {
+                        "p_job_name": {
+                            "value": "@pipeline().globalParameters.gp_databricks_xledger_inc_load_job_name",
+                            "type": "Expression"
+                        }
+                    }
+                }
+            }
+        ],
+        "folder": {
+            "name": "PL_02_Databricks/Jobs"
+        },
+        "annotations": [],
+        "lastPublishTime": "2025-12-04T15:30:40Z"
+    },
+    "type": "Microsoft.DataFactory/factories/pipelines"
+}
