@@ -1,0 +1,76 @@
+Step-by-step sequence
+Step 0 — Trigger
+A scheduled ADF trigger (daily) starts the master pipeline.
+
+Step 1 — Master orchestrator
+pl_load_src_to_stg_xledger_incremental_daily.json
+
+Fans out three parallel ExecutePipeline calls to the staging parent, one per batch:
+
+ep_stg_prod_batch → pBatchName = "prod"
+ep_stg_delta_batch → pBatchName = "delta"
+ep_stg_full_batch → pBatchName = "full"
+When all three succeed, runs ep_databricks_inc_refresh → calls pl_1_start_databricks_incremental_refresh_job (Step 6).
+
+Step 2 — Staging parent (runs 3x, one per batch)
+1.json pl_stg_GraphQL_to_ADSL_parent
+
+LU_UpdateLogPipelineBatchStart — logs batch start to control DB.
+LU_SelectStaging — calls SP [ETL].[uspSelect_Staging_GraphQL] with Sourcesystem='xledger', Enabled='Y', plus the pBatchName and pTargetTableName parameters. Returns the list of configured source tables for this batch.
+FE_LoadStaging — ForEach over those config rows, parallel, batchCount=8.
+if_initial_load checks item().InitialLoad:
+'Y' (first ever load) → delete_destination (clear ADLS folder) → pl_graphql_paged_request_full (runs Step 3 with GraphQLQueryFull) → sc_update_initial_load (Script: UPDATE ETL.Config_Staging SET InitialLoad='N').
+'N' (normal incremental) → pl_graphql_paged_request_incremental (runs Step 3 with GraphQLQueryIncremental).
+SP_UpdateLogPipelineBatchEndSuccess — logs batch completion.
+Step 3 — Paged extractor (runs once per config row)
+4.json pl_stg_GraphQL_paged_request
+
+LU_UpdateLogPipelineStart — SP [ETL].[uspUpdate_StagingStart] (per-table log).
+ep_get_kv_secret — retrieves the source API token from Azure Key Vault (pSourceKeyVaultSecret1).
+Set initial cursor variables: v_cursor_offset, v_new_token, then build the first vPagedGraphQLQuery and vPagedMetadataGraphQLQuery (replaces {{cursor_offset}} and {{to}} placeholders).
+until_no_data loop — exits when has_next_page = false OR v_error_code > 0:
+pl_graphql_single_request → Step 4 (fetch one page).
+sv_v_cursor_offset ← new cursor from previous response.
+sv_v_query_new_cursor / sv_v_meta_query_new_cursor — rebuild queries for next page.
+After loop: Update Watermark Value (SP [ETL].[uspUpdate_StagingToken]) → SP_UpdateStagingEnd ([ETL].[uspUpdate_StagingEnd]).
+Step 4 — Single page request (runs once per page)
+3.json pl_stg_GraphQL_single_request
+
+web_post_request — POST to source URL (e.g. https://www.xledger.net/graphql) with Authorization: token {pToken}, body = {query:"<metadata query>"}. Used to inspect record count and paging info cheaply.
+pl_process_reponse — calls Step 5 to parse the response.
+if_data_returned — if record_count > 0:
+cd_rest_parquet — Copy activity: source = DS_REST_SourceSystem (POSTs the full GraphQL query), sink = DS_ADL_Parquet_Target (Parquet in ADLS Gen2), using pTabularTranslatorObject for column mapping. Writes a source_system_code metadata tag on the file.
+sv_pipeline_return_success — returns { page_info, copy_data }.
+Else: sv_pipeline_return_no_data — returns page_info with null copy_data.
+On failure: sv_pipeline_return_failure → fail_cd_rest_parquet (Fail activity surfacing error code/message).
+Step 5 — Response metadata parser
+2.json pl_utl_GraphQL_get_reponse_metadata
+
+Pure variable pipeline:
+
+Normalizes the JSON path strings (strips $, [, ], ').
+split('.') the collection & paging paths, then ForEach drills into the response object level by level.
+Computes record_count, max_offset_value (cursor for next page), has_next_page, errors.
+Returns them via pipelineReturnValue (read by Step 3 & 4).
+Step 6 — Databricks refresh trigger
+pl_1_start_databricks_incremental_refresh_job.json
+
+Thin wrapper — ExecutePipeline → pl_utl_databricks_start_job with p_job_name = gp_databricks_xledger_inc_load_job_name.
+
+Step 7 — Start Databricks job
+pl_utl_databricks_start_job.json
+
+pl_get_databricks_workspace_access_token — calls Step 8 to get an OAuth bearer token.
+pl_utl_databricks_get_job_id — calls Step 9 to resolve job name → job ID.
+w_start_dbw_job — POST {workspace_url}/api/2.1/jobs/run-now with Authorization: Bearer <token> and body { "job_id": <id> }.
+Step 8 — Get Databricks access token
+pl_utl_get_databricks_workspace_access_token.json
+
+POST {account_url}/oidc/accounts/{account_id}/v1/token with grant_type=client_credentials&scope=all-apis, Basic auth using gp_databricks_client_id + Key Vault secret app-nest-dp-databricks-devops-secret. Returns access_token via pipelineReturnValue.
+
+Step 9 — Resolve Databricks job ID
+pl_utl_databricks_get_job_id.json
+
+web_get_databricks_jobs — GET {workspace_url}/api/2.1/jobs/list with bearer token.
+find_job_id — Filter activity matching item().settings.name == p_job_name.
+sv_pipeline_return — returns { job_id } to Step 7.
